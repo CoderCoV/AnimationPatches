@@ -1,25 +1,21 @@
 {
-  "name": "dev.sleightly.template",
-  "displayName": "JS - Template",
-  "version": "0.0.1",
-  "description": "A VPM Package Template",
-  "url": "https://github.com/JustSleightly/JS-Template",
+  "name": "ru.coderco.animationpatches",
+  "displayName": "CoderScripts - Animation Patches",
+  "version": "1.1.0",
+  "description": "Animation Patches",
+  "url": "https://github.com/CoderCoV/AnimationPatches",
   "gitDependencies": {},
-  "vpmDependencies": {
-    "com.vrchat.avatars": "^3.3.0"
-  },
+  "vpmDependencies": {},
   "legacyFolders": {},
   "legacyFiles": {},
   "type": "tool",
   "keywords": [
-  "JustSleightly",
-  "Sleightly",
-  "VRChat",
-  "Template"
+    "CoderCo",
+    "CoderScripts"
   ],
   "author": {
-    "name": "JustSleightly",
-    "email": "just@sleightly.dev",
-    "url": "https://just.sleightly.dev"
+    "name": "CoderCo",
+    "email": "coder.co@bk.ru",
+    "url": "https://coderco.space"
   }
 }

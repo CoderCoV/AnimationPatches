@@ -7,10 +7,10 @@ on:
     paths: package.json
 
 env:
-  packageName: "dev.sleightly.template"
-  packagePath: "Packages/dev.sleightly.template"
-  packageFileName: "JS-Template"
-  packageReleaseName: "VPM Package Template"
+  packageName: "ru.coderco.animationpatches"
+  packagePath: "Packages/ru.coderco.animationpatches"
+  packageFileName: "AnimationPatches"
+  packageReleaseName: "AnimationPatches"
   triggerRepoUpdate: ${{ false }}
 
 permissions:
