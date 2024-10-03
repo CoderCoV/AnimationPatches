@@ -1,9 +1,11 @@
-using System;
 using HarmonyLib;
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using UnityEditor;
-using UnityEngine;
 using UnityEditor.IMGUI.Controls;
+using UnityEngine;
 
 namespace CoderScripts.AnimationPatches
 {
@@ -50,7 +52,7 @@ namespace CoderScripts.AnimationPatches
                         }
 
                         GUIContent gUIContent = new GUIContent();
-                        if (clip  != null)
+                        if (clip != null)
                         {
                             gUIContent.text = clip.name;
                             gUIContent.tooltip = AssetDatabase.GetAssetPath(clip);
@@ -64,11 +66,12 @@ namespace CoderScripts.AnimationPatches
                         if (current.button == 0 && controlRect.Contains(current.mousePosition))
                         {
                             AnimationClip[] Clips = Traverse.Create(__instance).Method("GetOrderedClipList").GetValue<AnimationClip[]>();
-                            var dropdown = new AnimationClipListSearch(Clips, animationClip =>
+                            var dropdown = new AnimationClipListSearch(Clips, clip, animationClip =>
                             {
                                 activeAnimationClipProp.Value = animationClip;
                             });
-                            AdvancedDropdownExtensions.Show(dropdown, controlRect, 200);
+                            dropdown.Show(controlRect, 200);
+                            dropdown.Update();
                             current.Use();
                         } 
                         break;
@@ -92,27 +95,45 @@ namespace CoderScripts.AnimationPatches
     public class AnimationClipListSearch : AdvancedDropdown
     {
         public AnimationClip[] Clips;
+        public AnimationClip Selected;
         public Action<AnimationClip> SelectedAction;
         public AnimationClip SelectedClip;
-        public AnimationClipListSearch(AnimationClip[] List, Action<AnimationClip> selectedAction) : base(new AdvancedDropdownState())
+        public AdvancedDropdownItem Root;
+        public AnimationClipListSearch(AnimationClip[] List, AnimationClip selected, Action<AnimationClip> selectedAction) : base(new AdvancedDropdownState())
         {
             minimumSize = new Vector2(270f, 50f);
             Clips = List;
+            Selected = selected;
             SelectedAction = selectedAction;
         }
 
+        public void Update()
+        {
+            Traverse.Create(this).Field("m_State")
+                .Method("SetSelectionOnItem", Root, Clips.ToList().FindIndex(i => i == Selected))
+                .GetValue();
+        }
+
+
         protected override AdvancedDropdownItem BuildRoot()
         {
-            var root = new AdvancedDropdownItem("Select Clip");
+            var selectedPath = AssetDatabase.GetAssetPath(Selected);
+            var m_SelectedIDs = Traverse.Create(this).Field("m_DataSource").Field<List<int>>("m_SelectedIDs");
+                m_SelectedIDs.Value.Add(selectedPath.GetHashCode());                
+
 
             var ClipsCount = Clips.Length;
+            var root = new AdvancedDropdownItem("Clips: " + ClipsCount);
             for (var i = 0; i < ClipsCount; i++)
             {
                 var ClipName = Clips[i].name;
-                var ClipItem = new ClipDropdownItem(Clips[i], ClipName);
+                string ClipPath = AssetDatabase.GetAssetPath(Clips[i]);
+                var ClipItem = new ClipDropdownItem(Clips[i], ClipName, ClipPath);
+                
                 root.AddChild(ClipItem);
             }
 
+            Root = root;
             return root;
         }
 
@@ -128,8 +149,10 @@ namespace CoderScripts.AnimationPatches
         public class ClipDropdownItem : AdvancedDropdownItem
         {
             public AnimationClip Clip;
-            public ClipDropdownItem(AnimationClip clip, string name) : base(name)
+            public ClipDropdownItem(AnimationClip clip, string name, string path) : base(name)
             {
+                Traverse.Create(this).Property<string>("tooltip").Value = path;
+                id = path.GetHashCode();
                 Clip = clip;
             }
         }

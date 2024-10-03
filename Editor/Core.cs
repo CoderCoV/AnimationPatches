@@ -16,6 +16,7 @@ namespace CoderScripts.AnimationPatches
 
         public static Harmony harmonyInstance = new Harmony("CoderScripts.AnimationPatches");
 
+        [InitializeOnLoadMethod]
         static void DoPatches()
         {
             wait++;
