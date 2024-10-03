@@ -1,7 +1,7 @@
 {
   "name": "ru.coderco.animationpatches",
   "displayName": "CoderScripts - Animation Patches",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Animation Patches",
   "url": "https://github.com/CoderCoV/AnimationPatches",
   "gitDependencies": {},
@@ -17,5 +17,6 @@
     "name": "CoderCo",
     "email": "coder.co@bk.ru",
     "url": "https://coderco.space"
-  }
+  },
+  "unity": "2022.3"
 }
