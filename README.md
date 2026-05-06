@@ -2,6 +2,8 @@
 
 A Unity Editor tool that improves the Animation Window clip selection experience.
 
+![Preview](Content/preview.gif)
+
 ## What it does
 
 Replaces the default animation clip dropdown in the Animation Window with a searchable list that shows:
@@ -31,6 +33,8 @@ Add this package to your Unity project's `Packages` folder.
 # AnimationPatches
 
 Инструмент для Unity Editor, улучшающий выбор анимационных клипов в Animation Window.
+
+![Preview](Content/preview.gif)
 
 ## Что делает
 
