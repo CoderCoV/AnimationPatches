@@ -11,9 +11,14 @@ namespace CoderScripts.AnimationPatches
 {
     public class AnimationWindowPatches
     {
-
         private static readonly Type AnimationWindowClipPopupType = AccessTools.TypeByName("UnityEditor.AnimationWindowClipPopup");
         private static readonly Type AnimationWindowUtilityType = AccessTools.TypeByName("UnityEditorInternal.AnimationWindowUtility");
+
+        private static readonly MethodInfo CreateNewClipMethod = AnimationWindowUtilityType.GetMethod("CreateNewClip",
+            BindingFlags.Public | BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Static);
+        private static readonly MethodInfo AddClipToAnimationPlayerComponentMethod = AnimationWindowUtilityType
+            .GetMethod("AddClipToAnimationPlayerComponent",
+            BindingFlags.Public | BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Static);
 
         [HarmonyPatch]
         class PatchAnimationClipPopup
@@ -24,131 +29,132 @@ namespace CoderScripts.AnimationPatches
             [HarmonyPrefix]
             static bool DoClipPopupPrefix(ref AnimationClip __result, object __instance, AnimationClip clip, GUIStyle style)
             {
-
                 var stateField = Traverse.Create(__instance).Field("state");
                 var rootGameObjectName = stateField.Property("selection")
                     .Property("rootGameObject")
-                    .Property<String>("Name").Value;
+                    .Property<string>("Name").Value;
                 var activeAnimationPlayer = stateField.Property<Component>("activeAnimationPlayer").Value;
                 var activeAnimationClipProp = stateField.Property<AnimationClip>("activeAnimationClip");
-                var AnimationWindowUtilityTr = Traverse.Create(AnimationWindowUtilityType);
-
-                var CreateNewClipMethod = AnimationWindowUtilityType.GetMethod("CreateNewClip",
-                    BindingFlags.Public | BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Static);
-                var AddClipToAnimationPlayerComponentMethod = AnimationWindowUtilityType
-                    .GetMethod("AddClipToAnimationPlayerComponent",
-                    BindingFlags.Public | BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Static);
 
                 Rect controlRect = EditorGUILayout.GetControlRect(false, 18f, style);
                 Event current = Event.current;
+
                 switch (current.type)
                 {
                     case EventType.Repaint:
-                    {
-                        Font font = style.font;
-                        if ((bool)font && font == EditorStyles.miniFont)
-                        {
-                            style.font = EditorStyles.miniBoldFont;
-                        }
-
-                        GUIContent gUIContent = new GUIContent();
-                        if (clip != null)
-                        {
-                            gUIContent.text = clip.name;
-                            gUIContent.tooltip = AssetDatabase.GetAssetPath(clip);
-                        }
-
-                        style.Draw(controlRect, gUIContent, false, false, false, false);
-                        style.font = font;
+                        HandleRepaint(clip, style, controlRect);
                         break;
-                    }
+
                     case EventType.MouseDown:
-                        if (current.button == 0 && controlRect.Contains(current.mousePosition))
-                        {
-                            AnimationClip[] Clips = Traverse.Create(__instance).Method("GetOrderedClipList").GetValue<AnimationClip[]>();
-                            var dropdown = new AnimationClipListSearch(Clips, clip, animationClip =>
-                            {
-                                activeAnimationClipProp.Value = animationClip;
-                            });
-                            dropdown.Show(controlRect, 200);
-                            dropdown.Update();
-                            current.Use();
-                        } 
+                        HandleMouseDown(__instance, clip, controlRect, current, activeAnimationClipProp);
                         break;
                 }
 
+                HandleCreateNewClipButton(rootGameObjectName, activeAnimationPlayer, ref __result);
+
+                return false;
+            }
+
+            private static void HandleRepaint(AnimationClip clip, GUIStyle style, Rect controlRect)
+            {
+                Font originalFont = style.font;
+                if (originalFont != null && originalFont == EditorStyles.miniFont)
+                {
+                    style.font = EditorStyles.miniBoldFont;
+                }
+
+                GUIContent content = new GUIContent();
+                if (clip != null)
+                {
+                    content.text = clip.name;
+                    content.tooltip = AssetDatabase.GetAssetPath(clip);
+                }
+
+                style.Draw(controlRect, content, false, false, false, false);
+                style.font = originalFont;
+            }
+
+            private static void HandleMouseDown(object instance, AnimationClip clip, Rect controlRect, Event current, Traverse<AnimationClip> activeAnimationClipProp)
+            {
+                if (current.button == 0 && controlRect.Contains(current.mousePosition))
+                {
+                    AnimationClip[] clips = Traverse.Create(instance).Method("GetOrderedClipList").GetValue<AnimationClip[]>();
+                    var dropdown = new AnimationClipListSearch(clips, clip, animationClip =>
+                    {
+                        activeAnimationClipProp.Value = animationClip;
+                    });
+                    dropdown.Show(controlRect, 200);
+                    dropdown.Update();
+                    current.Use();
+                }
+            }
+
+            private static void HandleCreateNewClipButton(string rootGameObjectName, Component activeAnimationPlayer, ref AnimationClip result)
+            {
                 if (GUILayout.Button(EditorGUIUtility.IconContent("d_Toolbar Plus", "|Create New Clip"), EditorStyles.toolbarButton))
                 {
-                    AnimationClip animationClip = CreateNewClipMethod.Invoke(null, new []{ rootGameObjectName }) as AnimationClip;
-                    if ((bool)animationClip)
+                    AnimationClip animationClip = CreateNewClipMethod.Invoke(null, new[] { rootGameObjectName }) as AnimationClip;
+                    if (animationClip != null)
                     {
-                        AddClipToAnimationPlayerComponentMethod.Invoke(null, new object[]{activeAnimationPlayer, animationClip});
-                        __result = animationClip;
+                        AddClipToAnimationPlayerComponentMethod.Invoke(null, new object[] { activeAnimationPlayer, animationClip });
+                        result = animationClip;
                     }
                 }
-                return false;
             }
         }
     }
 
-
     public class AnimationClipListSearch : AdvancedDropdown
     {
-        public AnimationClip[] Clips;
-        public AnimationClip Selected;
-        public Action<AnimationClip> SelectedAction;
-        public AnimationClip SelectedClip;
-        public AdvancedDropdownItem Root;
-        public AnimationClipListSearch(AnimationClip[] List, AnimationClip selected, Action<AnimationClip> selectedAction) : base(new AdvancedDropdownState())
+        private readonly AnimationClip[] clips;
+        private readonly AnimationClip selectedClip;
+        private readonly Action<AnimationClip> onClipSelected;
+        private AdvancedDropdownItem root;
+
+        public AnimationClipListSearch(AnimationClip[] clips, AnimationClip selected, Action<AnimationClip> onClipSelected) : base(new AdvancedDropdownState())
         {
             minimumSize = new Vector2(270f, 50f);
-            Clips = List;
-            Selected = selected;
-            SelectedAction = selectedAction;
+            this.clips = clips;
+            this.selectedClip = selected;
+            this.onClipSelected = onClipSelected;
         }
 
         public void Update()
         {
+            int selectedIndex = clips.ToList().FindIndex(clip => clip == selectedClip);
             Traverse.Create(this).Field("m_State")
-                .Method("SetSelectionOnItem", Root, Clips.ToList().FindIndex(i => i == Selected))
+                .Method("SetSelectionOnItem", root, selectedIndex)
                 .GetValue();
         }
 
-
         protected override AdvancedDropdownItem BuildRoot()
         {
-            var selectedPath = AssetDatabase.GetAssetPath(Selected);
-            var m_SelectedIDs = Traverse.Create(this).Field("m_DataSource").Field<List<int>>("m_SelectedIDs");
-                m_SelectedIDs.Value.Add(selectedPath.GetHashCode());                
+            var selectedPath = AssetDatabase.GetAssetPath(selectedClip);
+            var selectedIDs = Traverse.Create(this).Field("m_DataSource").Field<List<int>>("m_SelectedIDs");
+            selectedIDs.Value.Add(selectedPath.GetHashCode());
 
+            root = new AdvancedDropdownItem($"Clips: {clips.Length}");
 
-            var ClipsCount = Clips.Length;
-            var root = new AdvancedDropdownItem("Clips: " + ClipsCount);
-            for (var i = 0; i < ClipsCount; i++)
+            foreach (var clip in clips)
             {
-                var ClipName = Clips[i].name;
-                string ClipPath = AssetDatabase.GetAssetPath(Clips[i]);
-                var ClipItem = new ClipDropdownItem(Clips[i], ClipName, ClipPath);
-                
-                root.AddChild(ClipItem);
+                string clipPath = AssetDatabase.GetAssetPath(clip);
+                var clipItem = new ClipDropdownItem(clip, clip.name, clipPath);
+                root.AddChild(clipItem);
             }
 
-            Root = root;
             return root;
         }
 
         protected override void ItemSelected(AdvancedDropdownItem item)
         {
-            var op = item as ClipDropdownItem;
-            SelectedClip = op.Clip;
-            SelectedAction(SelectedClip);
+            var clipItem = item as ClipDropdownItem;
+            onClipSelected?.Invoke(clipItem.Clip);
         }
 
-        public AnimationClip GetClip() => SelectedClip;
-
-        public class ClipDropdownItem : AdvancedDropdownItem
+        private class ClipDropdownItem : AdvancedDropdownItem
         {
-            public AnimationClip Clip;
+            public AnimationClip Clip { get; }
+
             public ClipDropdownItem(AnimationClip clip, string name, string path) : base(name)
             {
                 Traverse.Create(this).Property<string>("tooltip").Value = path;
@@ -158,7 +164,3 @@ namespace CoderScripts.AnimationPatches
         }
     }
 }
-
-
-
-

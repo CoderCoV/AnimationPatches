@@ -6,25 +6,16 @@ namespace CoderScripts.AnimationPatches
     [InitializeOnLoad]
     public class Core
     {
-        private static int wait = 0;
+        private static readonly Harmony harmonyInstance = new Harmony("CoderScripts.AnimationPatches");
 
         static Core()
         {
-            EditorApplication.update -= DoPatches;
-            EditorApplication.update += DoPatches;
+            EditorApplication.delayCall += ApplyPatches;
         }
 
-        public static Harmony harmonyInstance = new Harmony("CoderScripts.AnimationPatches");
-
-        [InitializeOnLoadMethod]
-        static void DoPatches()
+        private static void ApplyPatches()
         {
-            wait++;
-            if (wait > 2)
-            {
-                EditorApplication.update -= DoPatches;
-                harmonyInstance.PatchAll();
-            }
+            harmonyInstance.PatchAll();
         }
     }
 }

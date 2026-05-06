@@ -24,7 +24,7 @@ namespace CoderScripts.AnimationPatches
 
             if (!string.Equals(window.GetType().Namespace, typeof(AdvancedDropdown).Namespace))
             {
-                Debug.LogWarning("EditorWindow.focusedWindow " + EditorWindow.focusedWindow.GetType().FullName + " was not in expected namespace.");
+                Debug.LogWarning($"EditorWindow.focusedWindow {window.GetType().FullName} was not in expected namespace.");
                 return;
             }
 
